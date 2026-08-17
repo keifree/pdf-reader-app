@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Antigravity PDF Studio - Google Drive & 右綴じ対応マルチタブPDFリーダー</title>
+  <meta name="description" content="複数PDFのマルチタブ閲覧、Google Drive高速連携、右綴じ（RTL）属性付与、全画面iPad最適化Web PDFアプリ">
+
+  <!-- PWA Manifest & Theme Meta Tags -->
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#0b0f19">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="PDF Studio">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+
+  <!-- Modern Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="./style.css?v=8.0.4">
+
+  <!-- PDF.js Engine CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- pdf-lib Engine CDN -->
+  <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+</head>
+<body>
+  <div id="app-container">
+    
+    <!-- Top Ultra-Compact Header Navbar -->
+    <header class="app-header">
+      <div class="logo-area">
+        <div class="logo-icon">
+          <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+        </div>
+        <div class="logo-text">PDF Studio <span style="font-size: 0.65rem; color: #818cf8; font-weight: normal; margin-left: 4px;">v8.0.4</span></div>
+        <span id="drive-status-badge" class="drive-badge" style="display: none; margin-left: 8px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg> Drive接続中
+        </span>
+      </div>
+
+      <!-- Header Action Buttons -->
+      <div class="header-actions">
+        <button id="btn-open-file" class="btn btn-secondary" title="ローカルファイルを開く">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/></svg>
+          ファイルを開く
+        </button>
+
+        <button id="btn-gdrive-open" class="btn btn-drive" title="Google Driveからファイルを開く (ローカルDLなし)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 18H6c-2.21 0-4-1.79-4-4 0-2.05 1.53-3.76 3.56-3.97l1.07-.11.5-.95C8.08 7.14 9.94 6 6 12 6c2.62 0 4.88 1.86 5.39 4.43l.3 1.5 1.53.11c1.56.1 2.78 1.41 2.78 2.96 0 1.65-1.35 3-3 3z"/></svg>
+          Google Drive
+        </button>
+
+        <button id="btn-toggle-search" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.78rem;" title="PDF内の文字・透明テキスト(OCR)を検索">
+          🔍 検索
+        </button>
+
+        <button id="btn-save-drive" class="btn btn-secondary" title="Google Drive上のファイルを直接更新">
+          ☁️ 保存
+        </button>
+
+        <button id="btn-download-pdf" class="btn btn-primary" title="右綴じ属性と注釈を埋め込んでダウンロード">
+          💾 DL
+        </button>
+      </div>
+
+      <input type="file" id="file-input" accept="application/pdf" style="display: none;">
+    </header>
+
+    <!-- Multi-Tab Navigation Bar -->
+    <nav id="app-tab-bar" class="tab-bar">
+      <div id="tab-list" style="display: flex; gap: 4px; align-items: center;"></div>
+      <button id="btn-new-tab" class="tab-add-btn" title="新しいタブで開く">
+        ➕ 開く
+      </button>
+    </nav>
+
+    <!-- Main Workspace with Collapsible Split Docks -->
+    <main class="main-workspace">
+      
+      <!-- Floating Dock Open Buttons (Appears when docks are collapsed) -->
+      <button id="trigger-open-left" class="dock-floating-trigger" style="display: none;" title="画面設定・表示メニューを開く">
+        ⚙️ 設定 ◀
+      </button>
+
+      <button id="trigger-open-right" class="dock-floating-trigger" style="display: flex;" title="注釈コメント一覧を開く">
+        💬 注釈一覧
+      </button>
+
+      <!-- Left Dock: Reading & Layout Controls -->
+      <aside id="left-dock" class="left-dock">
+        <div class="left-dock-header">
+          <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-primary);">画面 ＆ 読書設定</span>
+          <button id="btn-collapse-left" class="tool-btn" title="設定パネルをたたんでPDFを全画面化" style="width: 24px; height: 24px;">
+            ◀
+          </button>
+        </div>
+
+        <!-- Section 1: View Mode Toggle -->
+        <div class="dock-section">
+          <div class="dock-section-title">表示方式</div>
+          <div class="toggle-pill-group">
+            <div id="opt-view-spread" class="toggle-pill-opt active" title="2ページ見開き表示">📖 見開き</div>
+            <div id="opt-view-single" class="toggle-pill-opt" title="1ページ単一表示">📄 単一</div>
+          </div>
+        </div>
+
+        <!-- Section 2: Binding Direction -->
+        <div class="dock-section">
+          <div class="dock-section-title">綴じ方向</div>
+          <div class="toggle-pill-group">
+            <div id="opt-rtl" class="toggle-pill-opt active" title="漫画・和書向け（右から左）">📖 右綴じ</div>
+            <div id="opt-ltr" class="toggle-pill-opt" title="洋書・技術書向け（左から右）">📘 左綴じ</div>
+          </div>
+        </div>
+
+        <!-- Section 3: Cover Page Mode -->
+        <div id="cover-mode-section" class="dock-section">
+          <div class="dock-section-title">見開き表紙設定</div>
+          <div class="toggle-pill-group">
+            <div id="opt-cover-on" class="toggle-pill-opt active" title="1ページ目を表紙として単一表示 (P1 -> P2+3)">🖼️ 表紙あり</div>
+            <div id="opt-cover-off" class="toggle-pill-opt" title="最初の1ページ目も含めて2ページ見開き (P1+2 -> P3+4)">📄 表紙なし</div>
+          </div>
+        </div>
+
+        <!-- Section 4: Page Fast-Forward Navigation (Scrubber Slider) -->
+        <div class="dock-section">
+          <div class="dock-section-title">ページ早送り・移動 (スライド可)</div>
+          <div class="page-nav-box">
+            <button id="btn-prev" class="tool-btn" title="前のページ (← / ホイール上)">
+              <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+            </button>
+            <span style="font-size: 0.8rem; color: var(--text-secondary);">P. <input type="number" id="current-page-num" class="page-num-input" value="1" min="1"> / <span id="total-pages">1</span></span>
+            <button id="btn-next" class="tool-btn" title="次のページ (→ / ホイール下)">
+              <svg viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+            </button>
+          </div>
+          <!-- ページ早送りドラッグスライダー (Page Fast-Forward Drag Slider) -->
+          <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px; width: 100%;">
+            <input type="range" id="page-scrubber-slider" min="1" max="1" value="1" title="ドラッグしてページを早送り移動" style="width: 100%; min-width: 120px; height: 28px; cursor: pointer; touch-action: pan-x !important;">
+          </div>
+        </div>
+
+        <!-- Section 5: Page Visual Theme & Brightness/Contrast -->
+        <div class="dock-section">
+          <div class="dock-section-title">画面テーマ ＆ 輝度調整</div>
+          <div class="toggle-pill-group">
+            <div id="theme-normal" class="toggle-pill-opt active" title="通常の白紙表示">☀️ 通常</div>
+            <div id="theme-dark" class="toggle-pill-opt" title="目に優しいダークモード (ソフトオフホワイト表示)">🌙 ダーク</div>
+            <div id="theme-sepia" class="toggle-pill-opt" title="目に優しいセピア風">📜 セピア</div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px; font-size: 0.75rem; color: var(--text-secondary);">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span>☀️ 輝度</span>
+              <input type="range" id="brightness-slider" min="50" max="150" value="100" style="width: 100px;">
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span>🌓 コントラスト</span>
+              <input type="range" id="contrast-slider" min="50" max="150" value="100" style="width: 100px;">
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 6: Zoom Controls -->
+        <div class="dock-section">
+          <div class="dock-section-title">表示サイズ調整</div>
+          <select id="zoom-select" class="dock-select">
+            <option value="fit-height">全体表示 (Fit Height)</option>
+            <option value="fit-width">幅に合わせる (Fit Width)</option>
+            <option value="100">100% (原寸表示)</option>
+            <option value="50">50%</option>
+            <option value="75">75%</option>
+            <option value="125">125%</option>
+            <option value="150">150%</option>
+            <option value="200">200%</option>
+          </select>
+        </div>
+
+        <!-- Section 7: Annotation Layer Show/Hide Filters -->
+        <div class="dock-section">
+          <div class="dock-section-title">注釈レイヤー表示/非表示 (※保存前のみ有効)</div>
+          <div class="layer-filter-bar" title="未保存（編集中）のレイヤーの表示/非表示ON/OFF切替" style="justify-content: space-around; padding: 6px; gap: 4px;">
+            <button id="layer-stroke" class="layer-btn active" title="手書き・ハイライトの表示/非表示 (保存前のもののみ)" style="font-size: 0.7rem; width: auto; padding: 2px 8px; border-radius: var(--radius-sm);">✏️ 手書き</button>
+            <button id="layer-shape" class="layer-btn active" title="直線・矢印・引出線の表示/非表示 (保存前のもののみ)" style="font-size: 0.7rem; width: auto; padding: 2px 8px; border-radius: var(--radius-sm);">📐 図形</button>
+            <button id="layer-text" class="layer-btn active" title="テキスト入力の表示/非表示 (保存前のもののみ)" style="font-size: 0.7rem; width: auto; padding: 2px 8px; border-radius: var(--radius-sm);">🔤 文字</button>
+            <button id="layer-pin" class="layer-btn active" title="ピン注釈の表示/非表示" style="font-size: 0.7rem; width: auto; padding: 2px 8px; border-radius: var(--radius-sm);">📍 ピン</button>
+          </div>
+        </div>
+
+        <!-- Section 8: Ink Opacity / Highlighter Mode -->
+        <div class="dock-section">
+          <div class="dock-section-title">ペン・直線の不透明度 (透過/蛍光化)</div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <input type="range" id="opacity-slider" min="15" max="100" value="100" title="不透明度調整 (35%以下で蛍光ペン化)" style="flex: 1;">
+            <span id="opacity-val-label" style="font-size: 0.75rem; min-width: 42px; font-weight: 600; color: var(--text-primary);">100%</span>
+          </div>
+        </div>
+
+        <!-- Section 9: Stroke Width Control -->
+        <div class="dock-section">
+          <div class="dock-section-title">線の太さ (描画ペン / 図形)</div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <input type="range" id="left-stroke-width-slider" min="1" max="20" value="3" title="線の太さ調整" style="flex: 1;">
+            <span id="stroke-width-val-label" style="font-size: 0.75rem; min-width: 36px; font-weight: 600; color: var(--text-primary);">3px</span>
+          </div>
+        </div>
+
+        <!-- Section 10: Cache Management Controls -->
+        <div class="dock-section" style="margin-top: 8px;">
+          <div class="dock-section-title">キャッシュ管理</div>
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <button id="btn-clear-memory" class="btn btn-secondary" style="font-size: 0.75rem; width: 100%; justify-content: flex-start;" title="背景の非アクティブタブのメモリを解放">
+              🧹 メモリ（タブ）解放
+            </button>
+            <button id="btn-clear-history" class="btn btn-secondary" style="font-size: 0.75rem; width: 100%; justify-content: flex-start; color: var(--danger);" title="保存された読書位置履歴をクリア">
+              🗑️ 読書履歴クリア
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Central Maximized PDF Viewer Container -->
+      <div id="viewer-container">
+        <!-- Floating Text Search Bar (PDF Transparent Text & OCR Search) -->
+        <div id="search-bar-container" class="search-bar-container" style="display: none;">
+          <div class="search-input-wrapper">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="search-input" placeholder="透明テキスト・文字を検索..." autocomplete="off">
+            <span id="search-count-label" class="search-count">0 / 0</span>
+          </div>
+          <button id="btn-search-prev" class="tool-btn" title="前の検索結果へ">▲</button>
+          <button id="btn-search-next" class="tool-btn" title="次の検索結果へ">▼</button>
+          <button id="btn-search-close" class="tool-btn" title="検索バーをたたむ">✕</button>
+        </div>
+        <!-- Ultra-Compact Draggable Floating Tool Palette -->
+        <div id="floating-draw-toolbar" class="floating-draw-toolbar vertical">
+          <!-- Drag Grip Handle & Layout Toggle -->
+          <div class="drag-handle-bar">
+            <div id="draw-toolbar-drag-handle" class="drag-handle" title="ドラッグして好きな場所に移動">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M9 3H11V5H9V3ZM13 3H15V5H13V3ZM9 7H11V9H9V7ZM13 7H15V9H13V7ZM9 11H11V13H9V11ZM13 11H15V13H13V11ZM9 15H11V17H9V15ZM13 15H15V17H13V15ZM9 19H11V21H9V19ZM13 19H15V21H13V19Z"/></svg>
+            </div>
+            <button id="btn-toggle-toolbar-orient" class="orient-btn" title="縦型 / 横型レイアウト切り替え">
+              ⇄
+            </button>
+          </div>
+
+          <div class="annot-tools-compact">
+            <button class="annot-btn active" data-tool="select" title="選択・移動モード (Esc)">
+              <svg viewBox="0 0 24 24"><path d="M7 2l12 11.2-5.8.5 3.3 7.3-2.2 1-3.2-7.4L7 18.5V2z"/></svg>
+            </button>
+            <button class="annot-btn" data-tool="pen" title="手書きペン">
+              <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+            </button>
+            <button class="annot-btn" data-tool="line" title="直線 (左サイドバーの透過度で蛍光ハイライト化)">
+              <svg viewBox="0 0 24 24"><path d="M4 20L20 4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+            </button>
+            <button class="annot-btn" data-tool="arrow" title="矢印描画">
+              <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+            </button>
+            <button class="annot-btn" data-tool="text" title="テキスト入力">
+              <span>T</span>
+            </button>
+            <button class="annot-btn" data-tool="callout" title="引出線付きテキスト">
+              <span>💬引</span>
+            </button>
+            <button class="annot-btn" data-tool="comment" title="ピン注釈追加">
+              <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
+            </button>
+            <button class="annot-btn" data-tool="eraser" title="消しゴム">
+              <svg viewBox="0 0 24 24"><path d="M15.14 3c-.51 0-1.02.2-1.41.59L2.59 14.73c-.78.77-.78 2.04 0 2.83L5.03 20h7.66l8.72-8.73c.78-.78.78-2.05 0-2.83l-4.86-4.85c-.39-.39-.9-.59-1.41-.59z"/></svg>
+            </button>
+          </div>
+
+          <!-- Color Dots & 1-Tap Stroke Width Selector -->
+          <div class="color-picker-wrapper-compact">
+            <div class="color-dot" data-color="#f43f5e" style="background: #f43f5e; border-color: white;" title="赤"></div>
+            <div class="color-dot" data-color="#3b82f6" style="background: #3b82f6;" title="青"></div>
+            <input type="color" id="custom-color-picker" value="#f43f5e" title="カラーパレット" style="width:18px; height:18px; border:none; background:transparent; cursor:pointer;">
+            
+            <!-- 1-Tap Width Pills -->
+            <div class="width-presets" title="線の太さ切替">
+              <button class="width-btn" data-width="1" title="細線 1px">細</button>
+              <button class="width-btn active" data-width="3" title="標準 3px">中</button>
+              <button class="width-btn" data-width="8" title="太線 8px">太</button>
+              <button class="width-btn" data-width="16" title="極太 16px">極</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Floating Bottom Fast-Scrum Page Slider & One-Touch Reset -->
+        <div id="floating-page-bar" class="floating-page-bar">
+          <button id="btn-quick-reset-zoom" class="btn btn-secondary" style="padding: 2px 8px; font-size: 0.72rem; border-radius: var(--radius-full);" title="全体表示（元のサイズ）に一発でリセット">
+            🔍 リセット
+          </button>
+          <span id="floating-page-label" style="font-size: 0.78rem; font-weight: 600; min-width: 65px; color: var(--text-primary);">P. 1 / 1</span>
+          <input type="range" id="floating-page-slider" class="floating-page-slider" min="1" max="1" value="1" title="ページ早送りドラッグ">
+        </div>
+
+        <div id="pdf-spread-view"></div>
+      </div>
+
+      <!-- Right Dock: Comments & Notes Drawer (Collapsible) -->
+      <aside id="right-sidebar" class="right-sidebar collapsed">
+        <div class="sidebar-header">
+          <div class="sidebar-title">
+            💬 注釈・コメント一覧
+          </div>
+
+          <button id="btn-collapse-right" class="tool-btn" title="注釈一覧パネルをたたむ" style="width: 24px; height: 24px; margin-left: auto;">
+            ▶
+          </button>
+        </div>
+
+        <div id="comments-list" class="comments-list">
+          <div class="empty-state">
+            <div class="empty-icon">💬</div>
+            <p style="font-size: 0.8rem;">注釈コメントはまだありません。<br>右端の「ピン」ツールでPDF上の位置をタップして追加できます。</p>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <!-- Google Drive Config Modal -->
+    <div id="gdrive-config-modal" class="modal-overlay">
+      <div class="modal-card">
+        <form id="gdrive-config-form" onsubmit="return false;">
+          <div class="modal-title">
+            <span>☁️</span> Google Drive OAuth API 設定
+          </div>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
+            Google DriveからローカルダウンロードなしでPDFを直接読み書きするには、GCP Consoleで発行した <strong>OAuth 2.0 クライアント ID</strong> を設定します。
+          </p>
+          <div class="form-group">
+            <label class="form-label">Google OAuth Client ID</label>
+            <input type="text" id="input-gdrive-client-id" class="form-input" placeholder="例: xxxxx.apps.googleusercontent.com" autocomplete="off">
+          </div>
+          <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px;">
+            <button id="btn-close-modal" type="button" class="btn btn-secondary">キャンセル</button>
+            <button id="btn-save-gdrive-config" type="submit" class="btn btn-primary">保存して接続</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="toast-container"></div>
+  </div>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js?v=8.0.4')
+          .then(reg => {
+            console.log('PWA ServiceWorker registered');
+            reg.update(); // Force check for new sw.js
+          })
+          .catch(err => console.warn('ServiceWorker registration failed:', err));
+      });
+    }
+  </script>
+
+  <script type="module" src="./js/app.js?v=8.0.4"></script>
+</body>
+</html>
