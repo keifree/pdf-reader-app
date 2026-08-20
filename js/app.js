@@ -9,7 +9,7 @@ import { AnnotationManager } from './annotation-manager.js';
 import { GoogleDriveManager } from './google-drive.js';
 import { PDFExporter } from './pdf-exporter.js';
 
-export const APP_VERSION = 'v9.0.1';
+export const APP_VERSION = 'v9.0.2';
 
 class App {
   constructor() {
@@ -26,6 +26,7 @@ class App {
     this.viewer = new PDFViewer(this.viewerContainer, this.spreadView);
     this.annotator = new AnnotationManager(this.commentsContainer);
     this.driveManager = new GoogleDriveManager();
+    this.driveManager.initBrowserUI();
 
     this.initVersionBadge();
     this.initEvents();

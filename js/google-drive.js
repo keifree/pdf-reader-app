@@ -10,8 +10,16 @@ export class GoogleDriveManager {
     this.clientId = localStorage.getItem('gdrive_client_id') || '';
     this.lastFolderId = localStorage.getItem('gdrive_last_folder_id') || 'root';
     this.lastFolderPath = localStorage.getItem('gdrive_last_folder_path') || '';
-    this.accessToken = null;
-    this.isDriveConnected = false;
+
+    // Restore cached token from sessionStorage if not expired
+    this.accessToken = sessionStorage.getItem('gdrive_access_token') || null;
+    this.tokenExpiresAt = parseInt(sessionStorage.getItem('gdrive_token_expires_at') || '0', 10);
+    if (this.accessToken && Date.now() > this.tokenExpiresAt) {
+      this.accessToken = null;
+      sessionStorage.removeItem('gdrive_access_token');
+    }
+
+    this.isDriveConnected = !!this.accessToken;
     this.currentDriveFile = null; // { id, name }
 
     this.onFileLoaded = null;
@@ -25,6 +33,7 @@ export class GoogleDriveManager {
     localStorage.setItem('gdrive_client_id', this.clientId);
     // Reset cached token when client ID changes
     this.accessToken = null;
+    sessionStorage.removeItem('gdrive_access_token');
     this.initGapiClient();
   }
 
@@ -52,7 +61,7 @@ export class GoogleDriveManager {
       throw new Error('Google Client IDが未設定です。ヘッダーの「Drive」ボタンからClient IDを入力してください。');
     }
 
-    if (this.accessToken && !forcePrompt) {
+    if (this.accessToken && Date.now() < this.tokenExpiresAt && !forcePrompt) {
       return this.accessToken;
     }
 
@@ -83,12 +92,18 @@ export class GoogleDriveManager {
           prompt: forcePrompt ? 'consent' : '',
           callback: (response) => {
             if (response.error) {
-              reject(response);
-            } else {
+              console.error('Google OAuth Error:', response);
+              reject(new Error(response.error_description || response.error));
+            } else if (response.access_token) {
               this.accessToken = response.access_token;
+              this.tokenExpiresAt = Date.now() + 3500 * 1000;
+              sessionStorage.setItem('gdrive_access_token', this.accessToken);
+              sessionStorage.setItem('gdrive_token_expires_at', String(this.tokenExpiresAt));
               this.isDriveConnected = true;
               if (this.onStatusChange) this.onStatusChange(true);
               resolve(this.accessToken);
+            } else {
+              reject(new Error('認証トークンを取得できませんでした'));
             }
           },
         });
@@ -219,15 +234,18 @@ export class GoogleDriveManager {
    * Main entry point to open Google Drive File Browser (replacing openPicker)
    */
   async openPicker() {
-    await this.authenticate();
-
     if (!this.modalEl) {
       this.initBrowserUI();
     }
 
+    // 1. Immediately display modal with loading state so user sees responsive feedback
     if (this.modalEl) {
       this.modalEl.classList.add('open');
     }
+    if (this.loadingEl) this.loadingEl.style.display = 'flex';
+    if (this.fileListEl) this.fileListEl.innerHTML = '';
+    if (this.emptyEl) this.emptyEl.style.display = 'none';
+    if (this.itemCountEl) this.itemCountEl.textContent = '接続中...';
 
     this.currentSource = 'mydrive';
     if (this.tabMyDrive) this.tabMyDrive.classList.add('active');
@@ -237,6 +255,15 @@ export class GoogleDriveManager {
     if (this.searchInputEl) {
       this.searchInputEl.value = '';
       if (this.searchClearBtn) this.searchClearBtn.style.display = 'none';
+    }
+
+    try {
+      // 2. Perform authentication (instantly returns if token is cached, or opens prompt)
+      await this.authenticate();
+    } catch (authErr) {
+      console.warn('Authentication cancelled or failed:', authErr);
+      this.closeBrowser();
+      throw authErr;
     }
 
     const startFolderId = this.lastFolderId || 'root';
