@@ -2,6 +2,9 @@
 
 新しいAIアシスタントへ：このファイルは、以前のセッションからの引き継ぎ資料です。ユーザーからの指示があった場合は、まずこのファイルを読んで現在のプロジェクトの仕様と背景を把握してください。
 
+> **【最重要運用ルール：改修履歴の自動記録】**
+> 今後、機能改修・バグ修正・アップデートを行い、ユーザーによる動作確認が完了した際は、**必ず本ファイルの「6. 改修・変更履歴（Decision & Change Log）」セクションに【何を・どんな風に・どうなったか】の形式で経緯を追記・コミットしてください**。将来のセッションで過去の判断や実装経緯を見失わないようにするためです。
+
 ---
 
 ## 1. プロジェクト概要
@@ -54,27 +57,55 @@
 ## 4. Git・開発・デプロイ環境
 * **ローカルリポジトリ**: `C:\Users\k1082\.gemini\antigravity\scratch\pdf-reader-app`
 * **GitHub Desktop連携**: ローカルリポジトリがGitHub Desktopと直接連携済みです。
-* **AIによる自動Git操作**:
-  * AIは以下のPowerShellスクリプトを利用して、コード変更後に直接 commit & push を実行できます：
-    ```powershell
-    $git = (Get-ChildItem "$env:LOCALAPPDATA\GitHubDesktop\app-*\resources\app\git\cmd\git.exe" | Select-Object -Last 1).FullName
-    & $git add .
-    & $git commit -m "コミットメッセージ"
-    & $git push
-    ```
+* **プッシュ手順**:
+  * コミット作成後、GitHub Desktopを開いて右上の「Push origin」ボタンでプッシュする（Windows資格情報マネージャーの非対話プロンプト対策のためGitHub DesktopアプリからのPushを推奨）。
 * **PWAキャッシュの注意**:
   * コード修正時は、ブラウザの強力なPWAキャッシュを更新するため、`index.html`、`sw.js`、`js/app.js` のバージョン番号（例: `v8.0.6` -> `v8.0.7`、`v406` -> `v407`）を必ずインクリメントしてください。
 
 ---
 
-## 5. 最近の修正と直近の状況 (v8.0.5 - v8.0.7)
-1. **Google Drive 401認証エラーの自動リトライ (v8.0.5)**:
-   * Google OAuthトークンが1時間で切れた際、`google-drive.js` 内で 401 Unauthorized を検知して自動でトークンを再取得・再保存する処理を実装済み。
-2. **PWAキャッシュリストの修正 (v8.0.6)**:
-   * `sw.js` 内で古い `drive-manager.js` を参照していた不具合を `google-drive.js` に修正。
-3. **iOS/iPadOS PWAキャッシュ問題の根本解決 (v8.0.7)**:
-   * **JS主導のバージョン動的同期**: `app.js` から起動時にヘッダーのバージョン表記（`#app-version-badge`）を強制上書き。
-   * **PWA自動リロード検知**: `index.html` にて `navigator.serviceWorker` の `controllerchange` イベントをリッスンし、ServiceWorker更新時に自動リフレッシュ。
-   * **HTMLナビゲーションのキャッシュバイパス**: `sw.js` の `fetch` で、ドキュメント取得時に `cache: 'no-cache'` を適用。
-   * **「🔄 アプリを最新に更新」ボタンの追加**: 左サイドバーのキャッシュ管理にワンタップで全キャッシュ削除・SW解除・強制リロードを行うボタンを設置。
+## 5. 現在の稼働ステータス (v8.0.7)
+* **最新バージョン**: v8.0.7 (安定稼働中)
+* **対応完了環境**: PC (Chrome/Edge), iPad (Safari/PWA), iPhone (Safari/PWA)
+* **Google Drive連携**: OAuthトークン自動更新機能付きで安定動作。
+* **PWAキャッシュ更新**: 設定サイドバー内の「🔄 アプリを最新に更新」ボタンにより、ホーム画面アプリでも即座に最新化可能。
+
+---
+
+## 6. 改修・変更履歴 (Decision & Change Log)
+
+### 【v8.0.7】 2026-08-21: iOS/iPadOS PWAキャッシュ固定化の解消と動的更新機能の実装
+* **① 何を（課題・不具合）**:
+  * iPhone・iPadのPWA（ホーム画面アイコン）で、タスクキルを繰り返してもバージョン表記が「v8.0.4」のまま更新されない不具合が発生（PCブラウザはv8.0.6/v8.0.7で表示され、Drive自動認証等の内部ロジックはv8.0.5相当で動いているという不整合状態）。
+* **② どんな風に（原因分析と改修内容）**:
+  * **原因**: 静的HTML（`index.html`）に固定文字でバージョンが書かれており、iOS WebClip（ホーム画面PWA）のWebKitサンドボックスが `index.html` を強力にキャッシュ保持していた。また、iOS PWAには再読み込みボタンがなく、Service Worker更新時のリフレッシュ検知もなかった。
+  * **改修**:
+    1. `js/app.js`: `APP_VERSION = 'v8.0.7'` を定義し、起動時に `#app-version-badge` を強制上書き（動的同期）。
+    2. `index.html`: `navigator.serviceWorker` の `controllerchange` イベントで自動リフレッシュする処理を追加。Cache-Controlメタタグを追加。
+    3. `sw.js`: `CACHE_NAME = 'pdf-studio-v407'` に更新。ナビゲーション時は `cache: 'no-cache'` でサーバーから常に最新HTMLを取得するよう強化。
+    4. `index.html` & `js/app.js`: 左サイドバーのキャッシュ管理に「🔄 アプリを最新に更新」ボタンを追加（caches全削除 + 全ServiceWorker解除 + キャッシュバスター付き強制リロード）。
+* **③ どうなったか（結果・動作確認）**:
+  * ユーザーによるiPhoneおよびiPadの実機確認にて、両端末とも **v8.0.7 への正常更新を確認完了**。
+  * 今後はアイコン削除を行わなくても、サイドバーの更新ボタン1発またはService Worker自動検知で最新版に切り替わる体制が整った。
+
+---
+
+### 【v8.0.6】 2026-08-21: sw.js 内のキャッシュ対象ファイル名不整合の修正
+* **① 何を**: PWAのService Workerキャッシュインストール（`cache.addAll`）が404エラーで失敗し、PWA更新が阻害されていた問題の解消。
+* **② どんな風に**: `sw.js` 内で誤って参照されていた存在しない旧ファイル名 `./js/drive-manager.js` を、実在する `./js/google-drive.js` に修正。
+* **③ どうなったか**: Service Workerの `install` イベントが正常に完走するようになった。
+
+---
+
+### 【v8.0.5】 2026-08-21: Google Drive 401 認証トークン切れの自動再取得＆リトライ
+* **① 何を**: 1時間経過してGoogle OAuthトークンが失効した際に、Drive保存・読込で401 Unauthorizedエラーが発生していた問題の解消。
+* **② どんな風に**: `google-drive.js` 内で 401 エラーを検知した際に、自動で `requestAccessToken()` を呼び出してトークンを再取得し、直前のAPIリクエストを自動リトライするフォールバック処理を実装。
+* **③ どうなったか**: トークン失効時もユーザーが再設定することなくシームレスにDrive連携が継続するようになった。
+
+---
+
+### 【v8.0.4】 2026-08-21: 自己完結型 編集可能PDF（OCGレイヤー＋JSON埋め込み）アーキテクチャの確立
+* **① 何を**: 他のPDFビューアでのアノテーション表示互換性と、本アプリでの再編集性（消しゴム消去・レイヤー切替）の両立。
+* **② どんな風に**: `pdf-exporter.js` で `AntigravityLayer`（OCG）に線を焼き付けつつ、生JSONをPDF添付ファイル（EmbeddedFiles）に格納。`pdf-viewer.js` でOCGを非表示にし、`app.js` でJSONからCanvasに復元。
+* **③ どうなったか**: 外部ビューアで閲覧可能でありながら、本アプリで開き直した際に完全に再編集可能なPDFファイル形式が完成した。
 
