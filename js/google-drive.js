@@ -98,11 +98,12 @@ export class GoogleDriveManager {
   }
 
   /**
-   * Recursively resolve full path string (e.g. "マイドライブ ▶ 寺院関係 ▶ PDFライブラリ")
+   * Recursively resolve path with smart ellipsis:
+   * e.g. "マイドライブ ▶ ... ▶ 寺院関係 ▶ PDFライブラリ" (max 2 folders + root)
    */
   async getFolderPath(folderId) {
     if (!folderId || folderId === 'root') {
-      return 'マイドライブ';
+      return { titlePath: 'マイドライブ', tabLabel: 'マイドライブ' };
     }
 
     try {
@@ -128,11 +129,24 @@ export class GoogleDriveManager {
         }
       }
 
-      pathParts.unshift('マイドライブ');
-      return pathParts.join(' ▶ ');
+      if (pathParts.length === 0) {
+        return { titlePath: 'マイドライブ', tabLabel: 'マイドライブ' };
+      }
+
+      // Smart ellipsis: if deeper than 2 folders, show "マイドライブ ▶ ... ▶ 直前 ▶ 現在"
+      if (pathParts.length > 2) {
+        const tail = pathParts.slice(-2);
+        const titlePath = `マイドライブ ▶ ... ▶ ${tail.join(' ▶ ')}`;
+        const tabLabel = `📁 ... ▶ ${tail.join(' ▶ ')}`;
+        return { titlePath, tabLabel };
+      } else {
+        const titlePath = `マイドライブ ▶ ${pathParts.join(' ▶ ')}`;
+        const tabLabel = `📁 ${pathParts.join(' ▶ ')}`;
+        return { titlePath, tabLabel };
+      }
     } catch (err) {
       console.warn('Failed to resolve folder path:', err);
-      return 'マイドライブ';
+      return { titlePath: 'マイドライブ', tabLabel: 'マイドライブ' };
     }
   }
 
@@ -140,18 +154,25 @@ export class GoogleDriveManager {
     // Re-authenticate to ensure write permissions are granted
     await this.authenticate();
 
-    return new Promise((resolve, reject) => {
-      if (!window.google?.picker) {
-        reject(new Error('Google Picker APIの読み込み中です。数秒後にもう一度お試しください。'));
-        return;
-      }
+    if (!window.google?.picker) {
+      throw new Error('Google Picker APIの読み込み中です。数秒後にもう一度お試しください。');
+    }
 
-      const lastFolderId = this.lastFolderId || localStorage.getItem('gdrive_last_folder_id') || 'root';
-      const lastFolderPath = this.lastFolderPath || localStorage.getItem('gdrive_last_folder_path') || '';
+    const lastFolderId = this.lastFolderId || localStorage.getItem('gdrive_last_folder_id') || 'root';
 
-      const isSubfolder = lastFolderId !== 'root' && lastFolderPath;
-      const currentFolderLabel = isSubfolder ? `📁 ${lastFolderPath}` : 'マイドライブ';
+    // Immediately resolve folder path if subfolder to guarantee real-time title & tab label
+    let folderInfo = { titlePath: 'マイドライブ', tabLabel: 'マイドライブ' };
+    if (lastFolderId !== 'root') {
+      folderInfo = await this.getFolderPath(lastFolderId);
+      this.lastFolderPath = folderInfo.titlePath;
+      localStorage.setItem('gdrive_last_folder_path', folderInfo.titlePath);
+    }
 
+    const isSubfolder = lastFolderId !== 'root';
+    const currentFolderLabel = isSubfolder ? folderInfo.tabLabel : 'マイドライブ';
+    const dialogTitle = isSubfolder ? `Google Drive (${folderInfo.titlePath})` : 'Google Drive';
+
+    return new Promise((resolve) => {
       // 1. Current / Last Opened Folder View (Smart Resume)
       const currentFolderView = new google.picker.DocsView(google.picker.ViewId.DOCS)
         .setParent(lastFolderId)
@@ -164,11 +185,11 @@ export class GoogleDriveManager {
       const pickerBuilder = new google.picker.PickerBuilder()
         .enableFeature(google.picker.Feature.SUPPORT_DRIVES)
         .enableFeature(google.picker.Feature.SUPPORT_TEAM_DRIVES)
-        .setTitle(isSubfolder ? `Google Drive (${lastFolderPath})` : 'Google Drive')
+        .setTitle(dialogTitle)
         .addView(currentFolderView);
 
-      // If lastFolderId is a subfolder, also provide a root "マイドライブ (最上位)" view tab to easily return to top
-      if (lastFolderId !== 'root') {
+      // If lastFolderId is a subfolder, also provide a root "マイドライブ (最上位)" view tab
+      if (isSubfolder) {
         const rootDriveView = new google.picker.DocsView(google.picker.ViewId.DOCS)
           .setParent('root')
           .setIncludeFolders(true)
@@ -217,9 +238,9 @@ export class GoogleDriveManager {
               localStorage.setItem('gdrive_last_folder_id', parentId);
 
               // Resolve full path asynchronously and cache it
-              this.getFolderPath(parentId).then((path) => {
-                this.lastFolderPath = path;
-                localStorage.setItem('gdrive_last_folder_path', path);
+              this.getFolderPath(parentId).then((info) => {
+                this.lastFolderPath = info.titlePath;
+                localStorage.setItem('gdrive_last_folder_path', info.titlePath);
               });
             }
 
