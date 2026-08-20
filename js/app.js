@@ -9,7 +9,7 @@ import { AnnotationManager } from './annotation-manager.js';
 import { GoogleDriveManager } from './google-drive.js';
 import { PDFExporter } from './pdf-exporter.js';
 
-export const APP_VERSION = 'v9.0.0';
+export const APP_VERSION = 'v9.0.1';
 
 class App {
   constructor() {

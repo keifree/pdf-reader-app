@@ -52,6 +52,28 @@ export class GoogleDriveManager {
       throw new Error('Google Client IDが未設定です。ヘッダーの「Drive」ボタンからClient IDを入力してください。');
     }
 
+    if (this.accessToken && !forcePrompt) {
+      return this.accessToken;
+    }
+
+    // Wait for google accounts oauth2 script if still loading
+    if (!window.google?.accounts?.oauth2) {
+      await new Promise((resolve) => {
+        let count = 0;
+        const interval = setInterval(() => {
+          count++;
+          if (window.google?.accounts?.oauth2 || count > 30) {
+            clearInterval(interval);
+            resolve();
+          }
+        }, 100);
+      });
+    }
+
+    if (!window.google?.accounts?.oauth2) {
+      throw new Error('Google認証スクリプトのロードに失敗しました。インターネット接続をご確認ください。');
+    }
+
     return new Promise((resolve, reject) => {
       try {
         const client = google.accounts.oauth2.initTokenClient({
@@ -184,7 +206,7 @@ export class GoogleDriveManager {
 
   closeBrowser() {
     if (this.modalEl) {
-      this.modalEl.style.display = 'none';
+      this.modalEl.classList.remove('open');
     }
     if (this._browserReject) {
       this._browserReject(new Error('ファイル選択がキャンセルされました'));
@@ -203,7 +225,10 @@ export class GoogleDriveManager {
       this.initBrowserUI();
     }
 
-    this.modalEl.style.display = 'flex';
+    if (this.modalEl) {
+      this.modalEl.classList.add('open');
+    }
+
     this.currentSource = 'mydrive';
     if (this.tabMyDrive) this.tabMyDrive.classList.add('active');
     if (this.tabShared) this.tabShared.classList.remove('active');
@@ -260,6 +285,14 @@ export class GoogleDriveManager {
         response = await fetch(url, {
           headers: { Authorization: `Bearer ${this.accessToken}` }
         });
+      }
+
+      // Fallback: If 404 (folder no longer exists), reset to root
+      if (response.status === 404 && folderId !== 'root') {
+        console.warn('Folder not found (404). Falling back to root...');
+        this.lastFolderId = 'root';
+        localStorage.setItem('gdrive_last_folder_id', 'root');
+        return this.loadFolder('root');
       }
 
       if (!response.ok) {
@@ -440,7 +473,7 @@ export class GoogleDriveManager {
 
   async handleFileSelected(file) {
     if (this.modalEl) {
-      this.modalEl.style.display = 'none';
+      this.modalEl.classList.remove('open');
     }
 
     this.currentDriveFile = {
