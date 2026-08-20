@@ -8,6 +8,7 @@
 export class GoogleDriveManager {
   constructor() {
     this.clientId = localStorage.getItem('gdrive_client_id') || '';
+    this.lastFolderId = localStorage.getItem('gdrive_last_folder_id') || 'root';
     this.accessToken = null;
     this.isDriveConnected = false;
     this.currentDriveFile = null; // { id, name }
@@ -75,6 +76,26 @@ export class GoogleDriveManager {
     });
   }
 
+  async getFileParentId(fileId) {
+    try {
+      const url = `https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,parents`;
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${this.accessToken}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.parents && data.parents.length > 0) {
+          return data.parents[0];
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to fetch parent folder ID:', err);
+    }
+    return null;
+  }
+
   async openPicker() {
     // Re-authenticate to ensure write permissions are granted
     await this.authenticate();
@@ -85,13 +106,31 @@ export class GoogleDriveManager {
         return;
       }
 
-      // 1. My Drive view with folder hierarchy navigation starting from root
-      const myDriveView = new google.picker.DocsView(google.picker.ViewId.DOCS)
-        .setParent('root')
+      const lastFolderId = this.lastFolderId || localStorage.getItem('gdrive_last_folder_id') || 'root';
+
+      // 1. Current / Last Opened Folder View (Smart Resume)
+      const currentFolderView = new google.picker.DocsView(google.picker.ViewId.DOCS)
+        .setParent(lastFolderId)
         .setIncludeFolders(true)
         .setMimeTypes('application/pdf')
         .setSelectFolderEnabled(false)
         .setMode(google.picker.DocsViewMode.LIST);
+
+      const pickerBuilder = new google.picker.PickerBuilder()
+        .enableFeature(google.picker.Feature.SUPPORT_DRIVES)
+        .enableFeature(google.picker.Feature.SUPPORT_TEAM_DRIVES)
+        .addView(currentFolderView);
+
+      // If lastFolderId is a subfolder, also provide a root "My Drive" view tab to easily return to top
+      if (lastFolderId !== 'root') {
+        const rootDriveView = new google.picker.DocsView(google.picker.ViewId.DOCS)
+          .setParent('root')
+          .setIncludeFolders(true)
+          .setMimeTypes('application/pdf')
+          .setSelectFolderEnabled(false)
+          .setMode(google.picker.DocsViewMode.LIST);
+        pickerBuilder.addView(rootDriveView);
+      }
 
       // 2. Shared with me view with folder hierarchy navigation
       const sharedWithMeView = new google.picker.DocsView(google.picker.ViewId.DOCS)
@@ -106,10 +145,7 @@ export class GoogleDriveManager {
         .setMimeTypes('application/pdf')
         .setMode(google.picker.DocsViewMode.LIST);
 
-      const pickerBuilder = new google.picker.PickerBuilder()
-        .enableFeature(google.picker.Feature.SUPPORT_DRIVES)
-        .enableFeature(google.picker.Feature.SUPPORT_TEAM_DRIVES)
-        .addView(myDriveView)
+      pickerBuilder
         .addView(sharedWithMeView)
         .addView(recentView)
         .setOAuthToken(this.accessToken)
@@ -121,6 +157,17 @@ export class GoogleDriveManager {
               id: fileDoc.id,
               name: fileDoc.name
             };
+
+            // Save parent folder ID for smart resume
+            let parentId = fileDoc.parentId;
+            if (!parentId) {
+              parentId = await this.getFileParentId(fileDoc.id);
+            }
+            if (parentId) {
+              this.lastFolderId = parentId;
+              localStorage.setItem('gdrive_last_folder_id', parentId);
+            }
+
             const arrayBuffer = await this.downloadFileToBuffer(fileDoc.id);
             if (this.onFileLoaded) {
               this.onFileLoaded(arrayBuffer, fileDoc.name);
