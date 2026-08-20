@@ -85,22 +85,26 @@ export class GoogleDriveManager {
         return;
       }
 
-      // 1. My Drive view with folder hierarchy navigation
+      // 1. My Drive view with folder hierarchy navigation starting from root
       const myDriveView = new google.picker.DocsView(google.picker.ViewId.DOCS)
+        .setParent('root')
         .setIncludeFolders(true)
         .setMimeTypes('application/pdf')
-        .setSelectFolderEnabled(false);
+        .setSelectFolderEnabled(false)
+        .setMode(google.picker.DocsViewMode.LIST);
 
       // 2. Shared with me view with folder hierarchy navigation
       const sharedWithMeView = new google.picker.DocsView(google.picker.ViewId.DOCS)
         .setIncludeFolders(true)
         .setMimeTypes('application/pdf')
         .setSelectFolderEnabled(false)
-        .setOwnedByMe(false);
+        .setOwnedByMe(false)
+        .setMode(google.picker.DocsViewMode.LIST);
 
       // 3. Recently picked / modified view
       const recentView = new google.picker.DocsView(google.picker.ViewId.RECENTLY_PICKED)
-        .setMimeTypes('application/pdf');
+        .setMimeTypes('application/pdf')
+        .setMode(google.picker.DocsViewMode.LIST);
 
       const pickerBuilder = new google.picker.PickerBuilder()
         .enableFeature(google.picker.Feature.SUPPORT_DRIVES)
