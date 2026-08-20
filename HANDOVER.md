@@ -57,8 +57,15 @@
 ## 4. Git・開発・デプロイ環境
 * **ローカルリポジトリ**: `C:\Users\k1082\.gemini\antigravity\scratch\pdf-reader-app`
 * **GitHub Desktop連携**: ローカルリポジトリがGitHub Desktopと直接連携済みです。
-* **プッシュ手順**:
-  * コミット作成後、GitHub Desktopを開いて右上の「Push origin」ボタンでプッシュする（Windows資格情報マネージャーの非対話プロンプト対策のためGitHub DesktopアプリからのPushを推奨）。
+* **AIによる自動Git操作**:
+  * AIは以下のPowerShellスクリプトを利用して、コード変更後に直接 commit & push を実行できます：
+    ```powershell
+    $git = (Get-ChildItem "$env:LOCALAPPDATA\GitHubDesktop\app-*\resources\app\git\cmd\git.exe" | Select-Object -Last 1).FullName
+    & $git add .
+    & $git commit -m "コミットメッセージ"
+    & $git push origin main
+    ```
+  * ※もし認証エラー等で停止した場合は、cmdにて `git config --global credential.gitHubAuthModes device` 設定の上で `git push` を実行し、ブラウザで再認証する。
 * **PWAキャッシュの注意**:
   * コード修正時は、ブラウザの強力なPWAキャッシュを更新するため、`index.html`、`sw.js`、`js/app.js` のバージョン番号（例: `v8.0.6` -> `v8.0.7`、`v406` -> `v407`）を必ずインクリメントしてください。
 
