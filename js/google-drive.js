@@ -85,12 +85,31 @@ export class GoogleDriveManager {
         return;
       }
 
-      const view = new google.picker.View(google.picker.ViewId.DOCS);
-      view.setMimeTypes('application/pdf');
+      // 1. My Drive view with folder hierarchy navigation
+      const myDriveView = new google.picker.DocsView(google.picker.ViewId.DOCS)
+        .setIncludeFolders(true)
+        .setMimeTypes('application/pdf')
+        .setSelectFolderEnabled(false);
 
-      const picker = new google.picker.PickerBuilder()
-        .addView(view)
+      // 2. Shared with me view with folder hierarchy navigation
+      const sharedWithMeView = new google.picker.DocsView(google.picker.ViewId.DOCS)
+        .setIncludeFolders(true)
+        .setMimeTypes('application/pdf')
+        .setSelectFolderEnabled(false)
+        .setOwnedByMe(false);
+
+      // 3. Recently picked / modified view
+      const recentView = new google.picker.DocsView(google.picker.ViewId.RECENTLY_PICKED)
+        .setMimeTypes('application/pdf');
+
+      const pickerBuilder = new google.picker.PickerBuilder()
+        .enableFeature(google.picker.Feature.SUPPORT_DRIVES)
+        .enableFeature(google.picker.Feature.SUPPORT_TEAM_DRIVES)
+        .addView(myDriveView)
+        .addView(sharedWithMeView)
+        .addView(recentView)
         .setOAuthToken(this.accessToken)
+        .setLocale('ja')
         .setCallback(async (data) => {
           if (data.action === google.picker.Action.PICKED) {
             const fileDoc = data.docs[0];
@@ -104,9 +123,9 @@ export class GoogleDriveManager {
             }
             resolve(fileDoc);
           }
-        })
-        .build();
+        });
 
+      const picker = pickerBuilder.build();
       picker.setVisible(true);
     });
   }
