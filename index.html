@@ -20,7 +20,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="./style.css?v=8.0.6">
+  <link rel="stylesheet" href="./style.css?v=8.0.7">
 
   <!-- PDF.js Engine CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -36,7 +36,7 @@
         <div class="logo-icon">
           <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
         </div>
-        <div class="logo-text">PDF Studio <span style="font-size: 0.65rem; color: #818cf8; font-weight: normal; margin-left: 4px;">v8.0.6</span></div>
+        <div class="logo-text">PDF Studio <span id="app-version-badge" style="font-size: 0.65rem; color: #818cf8; font-weight: normal; margin-left: 4px;">v8.0.7</span></div>
         <span id="drive-status-badge" class="drive-badge" style="display: none; margin-left: 8px;">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg> Drive接続中
         </span>
@@ -213,6 +213,9 @@
         <div class="dock-section" style="margin-top: 8px;">
           <div class="dock-section-title">キャッシュ管理</div>
           <div style="display: flex; flex-direction: column; gap: 6px;">
+            <button id="btn-force-update-app" class="btn btn-secondary" style="font-size: 0.75rem; width: 100%; justify-content: flex-start; color: #818cf8; font-weight: 600;" title="キャッシュとServiceWorkerを全初期化して最新版にリロード">
+              🔄 アプリを最新に更新
+            </button>
             <button id="btn-clear-memory" class="btn btn-secondary" style="font-size: 0.75rem; width: 100%; justify-content: flex-start;" title="背景の非アクティブタブのメモリを解放">
               🧹 メモリ（タブ）解放
             </button>
@@ -351,8 +354,17 @@
 
   <script>
     if ('serviceWorker' in navigator) {
+      let isRefreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!isRefreshing) {
+          isRefreshing = true;
+          console.log('New ServiceWorker activated. Refreshing app...');
+          window.location.reload();
+        }
+      });
+
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=8.0.6')
+        navigator.serviceWorker.register('./sw.js?v=8.0.7')
           .then(reg => {
             console.log('PWA ServiceWorker registered');
             reg.update(); // Force check for new sw.js
@@ -362,6 +374,6 @@
     }
   </script>
 
-  <script type="module" src="./js/app.js?v=8.0.6"></script>
+  <script type="module" src="./js/app.js?v=8.0.7"></script>
 </body>
 </html>

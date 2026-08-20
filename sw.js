@@ -3,7 +3,7 @@
  * Caches core app assets for offline launch & satisfies PWA installation criteria.
  */
 
-const CACHE_NAME = 'pdf-studio-v406';
+const CACHE_NAME = 'pdf-studio-v407';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -40,23 +40,51 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Pass Google Drive API / external requests directly to network
-  if (event.request.url.includes('googleapis.com') || event.request.url.includes('google.com') || event.request.url.includes('jsdelivr.net')) {
+  // Pass Google Drive API / CDN requests directly to network
+  if (
+    event.request.url.includes('googleapis.com') ||
+    event.request.url.includes('google.com') ||
+    event.request.url.includes('jsdelivr.net') ||
+    event.request.url.includes('cdnjs.cloudflare.com') ||
+    event.request.url.includes('unpkg.com')
+  ) {
+    return;
+  }
+
+  // Network-First with cache-busting for HTML navigation (prevents stale index.html in PWA)
+  if (event.request.mode === 'navigate' || event.request.destination === 'document') {
+    event.respondWith(
+      fetch(event.request, { cache: 'no-cache' })
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseClone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseClone);
+            });
+          }
+          return networkResponse;
+        })
+        .catch(() => {
+          return caches.match(event.request).then((res) => res || caches.match('./index.html') || caches.match('./'));
+        })
+    );
     return;
   }
 
   // Network-First strategy for local app code files
   event.respondWith(
-    fetch(event.request).then((networkResponse) => {
-      if (networkResponse && networkResponse.status === 200 && event.request.method === 'GET') {
-        const responseClone = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseClone);
-        });
-      }
-      return networkResponse;
-    }).catch(() => {
-      return caches.match(event.request);
-    })
+    fetch(event.request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200 && event.request.method === 'GET') {
+          const responseClone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseClone);
+          });
+        }
+        return networkResponse;
+      })
+      .catch(() => {
+        return caches.match(event.request);
+      })
   );
 });

@@ -9,6 +9,8 @@ import { AnnotationManager } from './annotation-manager.js';
 import { GoogleDriveManager } from './google-drive.js';
 import { PDFExporter } from './pdf-exporter.js';
 
+export const APP_VERSION = 'v8.0.7';
+
 class App {
   constructor() {
     this.tabs = [];
@@ -25,10 +27,18 @@ class App {
     this.annotator = new AnnotationManager(this.commentsContainer);
     this.driveManager = new GoogleDriveManager();
 
+    this.initVersionBadge();
     this.initEvents();
     this.initKeyboardShortcuts();
     this.initDraggableToolbar();
     this.initSampleTab();
+  }
+
+  initVersionBadge() {
+    const badge = document.getElementById('app-version-badge');
+    if (badge) {
+      badge.textContent = APP_VERSION;
+    }
   }
 
   getReadingHistory() {
@@ -403,6 +413,33 @@ class App {
     });
 
     // 7. Cache Management Buttons
+    const btnForceUpdate = document.getElementById('btn-force-update-app');
+    if (btnForceUpdate) {
+      btnForceUpdate.onclick = async () => {
+        if (confirm('アプリのキャッシュとService Workerを初期化し、最新バージョンに更新して再読み込みしますか？')) {
+          this.showToast('キャッシュを消去して最新版を読み込み中...', 'info');
+          try {
+            if ('serviceWorker' in navigator) {
+              const registrations = await navigator.serviceWorker.getRegistrations();
+              for (const reg of registrations) {
+                await reg.unregister();
+              }
+            }
+            if ('caches' in window) {
+              const cacheNames = await caches.keys();
+              for (const name of cacheNames) {
+                await caches.delete(name);
+              }
+            }
+          } catch (e) {
+            console.warn('Cache clearing error:', e);
+          }
+          // Force reload from server with timestamp to bypass any HTTP cache
+          window.location.href = window.location.origin + window.location.pathname + '?_t=' + Date.now();
+        }
+      };
+    }
+
     document.getElementById('btn-clear-memory').onclick = () => {
       if (this.tabs.length <= 1) {
         this.showToast('解放する非アクティブタブがありません', 'info');

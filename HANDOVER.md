@@ -1,4 +1,4 @@
-# PDF Studio Project Handover (v8.0.6)
+# PDF Studio Project Handover (v8.0.7)
 
 新しいAIアシスタントへ：このファイルは、以前のセッションからの引き継ぎ資料です。ユーザーからの指示があった場合は、まずこのファイルを読んで現在のプロジェクトの仕様と背景を把握してください。
 
@@ -19,7 +19,7 @@
 * `index.html`: アプリのUIレイアウト、PWAメタデータ設定、ツールバーUIなど。
 * `style.css`: UIのスタイリング。
 * `sw.js`: PWAのService Worker。`Network-First`戦略でキャッシュを管理。
-* `js/app.js`: アプリ全体の状態管理、UIイベントのバインディング、Drive連携、エクスポート、添付JSON抽出。
+* `js/app.js`: アプリ全体の状態管理、UIイベントのバインディング、Drive連携、エクスポート、添付JSON抽出、動的バージョン注入。
 * `js/pdf-viewer.js`: `pdf.js`を用いたPDFのレンダリング、OCG非表示制御、見開き表示、ページ移動機能。
 * `js/annotation-manager.js`: ユーザーが画面上に書き込む線や図形、テキストのCanvasベースのUI描画とJSONデータ管理。
 * `js/pdf-exporter.js`: `pdf-lib`を用いて、OCGレイヤーへの焼き付けとJSON添付ファイルの埋め込み処理。
@@ -55,23 +55,26 @@
 * **ローカルリポジトリ**: `C:\Users\k1082\.gemini\antigravity\scratch\pdf-reader-app`
 * **GitHub Desktop連携**: ローカルリポジトリがGitHub Desktopと直接連携済みです。
 * **AIによる自動Git操作**:
-  * AIは以下のパスのGitコマンドを利用して、コード変更後に直接 commit & push を実行できます：
+  * AIは以下のPowerShellスクリプトを利用して、コード変更後に直接 commit & push を実行できます：
     ```powershell
-    & "$env:LOCALAPPDATA\GitHubDesktop\app-*\resources\app\git\cmd\git.exe" add .
-    & "$env:LOCALAPPDATA\GitHubDesktop\app-*\resources\app\git\cmd\git.exe" commit -m "コミットメッセージ"
-    & "$env:LOCALAPPDATA\GitHubDesktop\app-*\resources\app\git\cmd\git.exe" push
+    $git = (Get-ChildItem "$env:LOCALAPPDATA\GitHubDesktop\app-*\resources\app\git\cmd\git.exe" | Select-Object -Last 1).FullName
+    & $git add .
+    & $git commit -m "コミットメッセージ"
+    & $git push
     ```
 * **PWAキャッシュの注意**:
-  * コード修正時は、ブラウザの強力なPWAキャッシュを更新するため、`index.html` および `sw.js` のバージョン番号（例: `v8.0.5` -> `v8.0.6`、`v405` -> `v406`）を必ずインクリメントしてください。
-  * `sw.js` 内でキャッシュするJSファイル名（`google-drive.js`等）が実在するものと完全一致していることを確認してください（存在しないファイルがあるとPWAの更新が失敗します）。
+  * コード修正時は、ブラウザの強力なPWAキャッシュを更新するため、`index.html`、`sw.js`、`js/app.js` のバージョン番号（例: `v8.0.6` -> `v8.0.7`、`v406` -> `v407`）を必ずインクリメントしてください。
 
 ---
 
-## 5. 最近の修正と直近の状況 (v8.0.5 - v8.0.6)
+## 5. 最近の修正と直近の状況 (v8.0.5 - v8.0.7)
 1. **Google Drive 401認証エラーの自動リトライ (v8.0.5)**:
    * Google OAuthトークンが1時間で切れた際、`google-drive.js` 内で 401 Unauthorized を検知して自動でトークンを再取得・再保存する処理を実装済み。
 2. **PWAキャッシュリストの修正 (v8.0.6)**:
    * `sw.js` 内で古い `drive-manager.js` を参照していた不具合を `google-drive.js` に修正。
-3. **現在の課題**:
-   * iOS/iPadOSのPWA（ホーム画面アイコン）で古いキャッシュ（v8.0.4）が残っている場合がある。一度Safariの履歴/キャッシュ削除やアイコン再追加を推奨。
+3. **iOS/iPadOS PWAキャッシュ問題の根本解決 (v8.0.7)**:
+   * **JS主導のバージョン動的同期**: `app.js` から起動時にヘッダーのバージョン表記（`#app-version-badge`）を強制上書き。
+   * **PWA自動リロード検知**: `index.html` にて `navigator.serviceWorker` の `controllerchange` イベントをリッスンし、ServiceWorker更新時に自動リフレッシュ。
+   * **HTMLナビゲーションのキャッシュバイパス**: `sw.js` の `fetch` で、ドキュメント取得時に `cache: 'no-cache'` を適用。
+   * **「🔄 アプリを最新に更新」ボタンの追加**: 左サイドバーのキャッシュ管理にワンタップで全キャッシュ削除・SW解除・強制リロードを行うボタンを設置。
 
