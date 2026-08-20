@@ -9,6 +9,7 @@ export class GoogleDriveManager {
   constructor() {
     this.clientId = localStorage.getItem('gdrive_client_id') || '';
     this.lastFolderId = localStorage.getItem('gdrive_last_folder_id') || 'root';
+    this.lastFolderPath = localStorage.getItem('gdrive_last_folder_path') || '';
     this.accessToken = null;
     this.isDriveConnected = false;
     this.currentDriveFile = null; // { id, name }
@@ -96,6 +97,45 @@ export class GoogleDriveManager {
     return null;
   }
 
+  /**
+   * Recursively resolve full path string (e.g. "マイドライブ ▶ 寺院関係 ▶ PDFライブラリ")
+   */
+  async getFolderPath(folderId) {
+    if (!folderId || folderId === 'root') {
+      return 'マイドライブ';
+    }
+
+    try {
+      const pathParts = [];
+      let currentId = folderId;
+
+      // Trace up to 6 levels to avoid infinite recursion
+      for (let i = 0; i < 6; i++) {
+        if (!currentId || currentId === 'root') break;
+        const url = `https://www.googleapis.com/drive/v3/files/${currentId}?fields=id,name,parents`;
+        const res = await fetch(url, {
+          headers: { Authorization: `Bearer ${this.accessToken}` }
+        });
+        if (!res.ok) break;
+        const data = await res.json();
+        if (!data.name) break;
+        pathParts.unshift(data.name);
+
+        if (data.parents && data.parents.length > 0) {
+          currentId = data.parents[0];
+        } else {
+          break;
+        }
+      }
+
+      pathParts.unshift('マイドライブ');
+      return pathParts.join(' ▶ ');
+    } catch (err) {
+      console.warn('Failed to resolve folder path:', err);
+      return 'マイドライブ';
+    }
+  }
+
   async openPicker() {
     // Re-authenticate to ensure write permissions are granted
     await this.authenticate();
@@ -107,6 +147,10 @@ export class GoogleDriveManager {
       }
 
       const lastFolderId = this.lastFolderId || localStorage.getItem('gdrive_last_folder_id') || 'root';
+      const lastFolderPath = this.lastFolderPath || localStorage.getItem('gdrive_last_folder_path') || '';
+
+      const isSubfolder = lastFolderId !== 'root' && lastFolderPath;
+      const currentFolderLabel = isSubfolder ? `📁 ${lastFolderPath}` : 'マイドライブ';
 
       // 1. Current / Last Opened Folder View (Smart Resume)
       const currentFolderView = new google.picker.DocsView(google.picker.ViewId.DOCS)
@@ -114,21 +158,24 @@ export class GoogleDriveManager {
         .setIncludeFolders(true)
         .setMimeTypes('application/pdf')
         .setSelectFolderEnabled(false)
-        .setMode(google.picker.DocsViewMode.LIST);
+        .setMode(google.picker.DocsViewMode.LIST)
+        .setLabel(currentFolderLabel);
 
       const pickerBuilder = new google.picker.PickerBuilder()
         .enableFeature(google.picker.Feature.SUPPORT_DRIVES)
         .enableFeature(google.picker.Feature.SUPPORT_TEAM_DRIVES)
+        .setTitle(isSubfolder ? `Google Drive (${lastFolderPath})` : 'Google Drive')
         .addView(currentFolderView);
 
-      // If lastFolderId is a subfolder, also provide a root "My Drive" view tab to easily return to top
+      // If lastFolderId is a subfolder, also provide a root "マイドライブ (最上位)" view tab to easily return to top
       if (lastFolderId !== 'root') {
         const rootDriveView = new google.picker.DocsView(google.picker.ViewId.DOCS)
           .setParent('root')
           .setIncludeFolders(true)
           .setMimeTypes('application/pdf')
           .setSelectFolderEnabled(false)
-          .setMode(google.picker.DocsViewMode.LIST);
+          .setMode(google.picker.DocsViewMode.LIST)
+          .setLabel('マイドライブ (最上位)');
         pickerBuilder.addView(rootDriveView);
       }
 
@@ -138,12 +185,14 @@ export class GoogleDriveManager {
         .setMimeTypes('application/pdf')
         .setSelectFolderEnabled(false)
         .setOwnedByMe(false)
-        .setMode(google.picker.DocsViewMode.LIST);
+        .setMode(google.picker.DocsViewMode.LIST)
+        .setLabel('共有アイテム');
 
       // 3. Recently picked / modified view
       const recentView = new google.picker.DocsView(google.picker.ViewId.RECENTLY_PICKED)
         .setMimeTypes('application/pdf')
-        .setMode(google.picker.DocsViewMode.LIST);
+        .setMode(google.picker.DocsViewMode.LIST)
+        .setLabel('最近使用したファイル');
 
       pickerBuilder
         .addView(sharedWithMeView)
@@ -158,7 +207,7 @@ export class GoogleDriveManager {
               name: fileDoc.name
             };
 
-            // Save parent folder ID for smart resume
+            // Save parent folder ID and resolve breadcrumb path for smart resume
             let parentId = fileDoc.parentId;
             if (!parentId) {
               parentId = await this.getFileParentId(fileDoc.id);
@@ -166,6 +215,12 @@ export class GoogleDriveManager {
             if (parentId) {
               this.lastFolderId = parentId;
               localStorage.setItem('gdrive_last_folder_id', parentId);
+
+              // Resolve full path asynchronously and cache it
+              this.getFolderPath(parentId).then((path) => {
+                this.lastFolderPath = path;
+                localStorage.setItem('gdrive_last_folder_path', path);
+              });
             }
 
             const arrayBuffer = await this.downloadFileToBuffer(fileDoc.id);
