@@ -113,11 +113,22 @@ export class GoogleDriveManager {
 
   async downloadFileToBuffer(fileId) {
     const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
-    const response = await fetch(url, {
+    let response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${this.accessToken}`
       }
     });
+
+    if (response.status === 401) {
+      console.warn('Access token expired on download (401). Re-authenticating...');
+      this.accessToken = null;
+      await this.authenticate();
+      response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${this.accessToken}`
+        }
+      });
+    }
 
     if (!response.ok) {
       const errText = await response.text();
@@ -141,8 +152,16 @@ export class GoogleDriveManager {
     try {
       return await this._executeMultipartUpload(pdfArrayBuffer, targetName, fileId);
     } catch (err) {
+      // Auto Re-auth: If 401 (token expired), re-authenticate and retry upload once
+      if (err.message && (err.message.includes('401') || err.message.includes('invalid authentication credentials'))) {
+        console.warn('Access token expired on save (401). Refreshing token and retrying upload...');
+        this.accessToken = null;
+        await this.authenticate();
+        return await this._executeMultipartUpload(pdfArrayBuffer, targetName, fileId);
+      }
+
       // Fallback: If 403 write permission denied on existing fileId, save as a new file in Drive
-      if (fileId && err.message.includes('403')) {
+      if (fileId && err.message && err.message.includes('403')) {
         console.warn('Overwriting existing file denied. Creating a new file copy on Google Drive...');
         const newName = `[編集済]_${targetName}`;
         const newResult = await this._executeMultipartUpload(pdfArrayBuffer, newName, null);
