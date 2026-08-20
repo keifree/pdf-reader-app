@@ -23,7 +23,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="./style.css?v=8.1.2">
+  <link rel="stylesheet" href="./style.css?v=9.0.0">
 
   <!-- PDF.js Engine CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -39,7 +39,7 @@
         <div class="logo-icon">
           <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
         </div>
-        <div class="logo-text">PDF Studio <span id="app-version-badge" style="font-size: 0.65rem; color: #818cf8; font-weight: normal; margin-left: 4px;">v8.1.2</span></div>
+        <div class="logo-text">PDF Studio <span id="app-version-badge" style="font-size: 0.65rem; color: #818cf8; font-weight: normal; margin-left: 4px;">v9.0.0</span></div>
         <span id="drive-status-badge" class="drive-badge" style="display: none; margin-left: 8px;">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg> Drive接続中
         </span>
@@ -352,6 +352,63 @@
       </div>
     </div>
 
+    <!-- Built-in Google Drive File Browser Modal (v9.0.0) -->
+    <div id="gdrive-browser-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card gdrive-browser-card">
+        <!-- Modal Header -->
+        <div class="gdrive-browser-header">
+          <div class="gdrive-browser-title-area">
+            <span style="font-size: 1.25rem;">☁️</span>
+            <span class="gdrive-browser-title">Google Drive</span>
+          </div>
+          <div class="gdrive-browser-search-wrap">
+            <input type="text" id="gdrive-search-input" class="gdrive-search-input" placeholder="🔍 PDFまたはフォルダを検索..." autocomplete="off">
+            <button id="gdrive-search-clear" class="tool-btn" style="display: none; padding: 2px 6px; font-size: 0.75rem;">✕</button>
+          </div>
+          <button id="btn-close-gdrive-browser" class="tool-btn" title="閉じる" style="font-size: 1.1rem; width: 32px; height: 32px;">✕</button>
+        </div>
+
+        <!-- Navigation Bar: Source Tabs & Clickable Breadcrumbs -->
+        <div class="gdrive-browser-nav-bar">
+          <!-- View Source Tabs -->
+          <div class="gdrive-source-tabs">
+            <button id="gdrive-tab-mydrive" class="gdrive-tab-btn active" data-source="mydrive">📁 マイドライブ</button>
+            <button id="gdrive-tab-shared" class="gdrive-tab-btn" data-source="shared">👥 共有アイテム</button>
+            <button id="gdrive-tab-recent" class="gdrive-tab-btn" data-source="recent">🕒 最近使用</button>
+          </div>
+
+          <!-- Clickable Breadcrumb Bar with Up Button -->
+          <div class="gdrive-breadcrumb-bar">
+            <button id="gdrive-btn-up" class="gdrive-up-btn" title="1つ上の親フォルダへ移動">⬆ 1つ上へ</button>
+            <div id="gdrive-breadcrumbs" class="gdrive-breadcrumbs-list">
+              <!-- Dynamically populated e.g. [マイドライブ] > [寺院関係] > [PDFライブラリ] -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Main Content Area: Folders & PDF Files -->
+        <div id="gdrive-file-list-container" class="gdrive-file-list-container">
+          <div id="gdrive-loading-spinner" class="gdrive-loading" style="display: none;">
+            <div class="spinner"></div>
+            <span>Google Driveから読み込み中...</span>
+          </div>
+          <div id="gdrive-file-list" class="gdrive-file-list">
+            <!-- Dynamically populated files and folders -->
+          </div>
+          <div id="gdrive-empty-state" class="gdrive-empty" style="display: none;">
+            <div style="font-size: 2.2rem; margin-bottom: 8px;">📂</div>
+            <p style="font-size: 0.85rem; color: var(--text-secondary);">このフォルダにはPDFファイルがありません</p>
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="gdrive-browser-footer">
+          <span id="gdrive-item-count" style="font-size: 0.78rem; color: var(--text-secondary);">0 個のアイテム</span>
+          <button id="btn-cancel-gdrive-browser" class="btn btn-secondary">閉じる</button>
+        </div>
+      </div>
+    </div>
+
     <div id="toast-container"></div>
   </div>
 
@@ -367,7 +424,7 @@
       });
 
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=8.1.2')
+        navigator.serviceWorker.register('./sw.js?v=9.0.0')
           .then(reg => {
             console.log('PWA ServiceWorker registered');
             reg.update(); // Force check for new sw.js
@@ -377,6 +434,6 @@
     }
   </script>
 
-  <script type="module" src="./js/app.js?v=8.1.2"></script>
+  <script type="module" src="./js/app.js?v=9.0.0"></script>
 </body>
 </html>
