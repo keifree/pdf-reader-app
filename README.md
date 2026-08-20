@@ -30,8 +30,15 @@ Adobe Acrobat Readerの代替を目指し構築された、高機能・モダン
 
 ## 🚀 起動方法
 
-### 方法1: Pythonローカルサーバーで起動（推奨）
-コマンドプロンプトやTerminalで以下を実行します：
+### 方法1: Webブラウザから利用（GitHub Pages / 推奨）
+以下の公開URLにアクセスするだけで、PC・iPad・スマホ等どの端末からでもすぐに利用可能です：
+
+👉 **[https://keifree.github.io/pdf-reader-app/](https://keifree.github.io/pdf-reader-app/)**
+
+> 💡 **PWAインストール**: Chrome/Edge/Safariのアドレスバーから「アプリとしてインストール / ホーム画面に追加」することで、デスクトップアプリ感覚で利用できます。
+
+### 方法2: Pythonローカルサーバーで起動
+オフライン環境やローカルでの開発時は、以下を実行します：
 
 ```bash
 cd C:\Users\k1082\.gemini\antigravity\scratch\pdf-reader-app
@@ -40,7 +47,7 @@ python server.py
 
 ブラウザで [http://localhost:8080](http://localhost:8080) にアクセスしてください。
 
-### 方法2: index.htmlを直接ブラウザで開く
+### 方法3: index.htmlを直接ブラウザで開く
 `index.html` ダブルクリックでもサンプルPDFの動作確認やローカルPDFの編集が可能です。
 
 ---
