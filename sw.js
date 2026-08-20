@@ -3,7 +3,7 @@
  * Caches core app assets for offline launch & satisfies PWA installation criteria.
  */
 
-const CACHE_NAME = 'pdf-studio-v405';
+const CACHE_NAME = 'pdf-studio-v406';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -17,7 +17,7 @@ self.addEventListener('install', (event) => {
         './js/pdf-viewer.js',
         './js/annotation-manager.js',
         './js/pdf-exporter.js',
-        './js/drive-manager.js'
+        './js/google-drive.js'
       ]);
     })
   );
