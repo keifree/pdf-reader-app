@@ -40,19 +40,11 @@ export class GoogleDriveManager {
   initGapiClient() {
     if (!this.clientId) return;
 
-    if (!window.gapi) {
-      const script1 = document.createElement('script');
-      script1.src = 'https://apis.google.com/js/api.js';
-      script1.onload = () => {
-        gapi.load('picker', () => console.log('Google Picker API loaded'));
-      };
-      document.head.appendChild(script1);
-    }
-
+    // Load Google Identity Services (GSI) for OAuth authentication
     if (!window.google?.accounts?.oauth2) {
-      const script2 = document.createElement('script');
-      script2.src = 'https://accounts.google.com/gsi/client';
-      document.head.appendChild(script2);
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      document.head.appendChild(script);
     }
   }
 
